@@ -144,7 +144,6 @@
       <pre id="tableData" class="bg-gray-100 p-4 rounded text-sm overflow-x-auto whitespace-pre-wrap"></pre>
     </section>
 
-    <!-- Chart Section -->
     <section class="bg-white shadow-md rounded-xl p-6">
       <h2 class="text-xl font-semibold text-purple-600 mb-6">📊 Portfolio Summary</h2>
       <div class="grid md:grid-cols-2 gap-6">
@@ -157,7 +156,6 @@
       </div>
     </section>
 
-    <!-- Show Alert Table -->
     <section class="bg-white shadow-md rounded-xl p-6">
       <h2 class="text-xl font-semibold text-purple-600 mb-6">🚨 Alert Table Data</h2>
       <div class="space-y-2">
@@ -173,13 +171,11 @@
   <script>
     const API_BASE_URL = "https://ich68whaml.execute-api.ap-south-1.amazonaws.com/prd";
 
-    // Form elements
     const addRowForm = document.getElementById("addRowForm");
     const deleteRowForm = document.getElementById("deleteRowForm");
     const showTableBtn = document.getElementById("showTable");
     const alertShowTableBtn = document.getElementById("alertShowTable");
 
-    // Search elements
     const stockSearch = document.getElementById("stockSearch");
     const searchResults = document.getElementById("searchResults");
     const selectedFigi = document.getElementById("selectedFigi");
@@ -187,7 +183,6 @@
     const selectedStock = document.getElementById("selectedStock");
     const selectedStockText = document.getElementById("selectedStockText");
 
-    // Other form inputs
     const addPrice = document.getElementById("addPrice");
     const addEmail = document.getElementById("addEmail");
     const addPassword = document.getElementById("addPassword");
@@ -217,10 +212,8 @@
       }
     }
 
-    // Initialize data loading
     loadStockData();
 
-    // Search functionality with debouncing
     stockSearch.addEventListener("input", function(e) {
       const query = e.target.value.trim();
       
@@ -231,16 +224,14 @@
         return;
       }
 
-      // Show loading
       showLoading();
       
-      // Debounce search
+     
       searchTimeout = setTimeout(() => {
         performSearch(query);
       }, 300);
     });
 
-    // Keyboard navigation
     stockSearch.addEventListener("keydown", function(e) {
       const items = searchResults.getElementsByClassName("dropdown-item");
       
@@ -262,7 +253,7 @@
       }
     });
 
-    // Hide results when clicking outside
+    
     document.addEventListener("click", function(e) {
       if (!e.target.closest(".search-dropdown")) {
         hideSearchResults();
@@ -347,7 +338,7 @@
       hideSearchResults();
     }
 
-    // Common fetch function with proper error handling
+    
     async function apiCall(endpoint, payload) {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: "POST",
@@ -367,7 +358,7 @@
       return result;
     }
 
-    // Add Row Form Handler - FIXED VERSION
+ 
     addRowForm.addEventListener("submit", async function (e) {
       e.preventDefault();
 
@@ -390,7 +381,7 @@
           userData = await apiCall("/get-the-by-email", { email, password });
           userExists = true;
           
-          // Check if stock already exists for this user
+          
           const rows = Array.isArray(userData.data) ? userData.data : [];
           const stockExists = rows.some(row => row.display_symbol === display_symbol);
           
@@ -399,12 +390,12 @@
             return;
           }
         } catch (error) {
-          // User might not exist, that's okay - we'll create them
+          
           console.log("User might not exist yet, will create new user");
           userExists = false;
         }
 
-        // Always try to create/add the stock (the backend handles both new users and existing users)
+        
         const result = await apiCall("/create-row", { 
           figi, 
           display_symbol, 
@@ -517,7 +508,7 @@
       } catch (err) {
         console.error("Alert Show error:", err);
         
-        // Better error handling - check if it's actually a "no data" scenario
+        
         const errorMsg = err.message.toLowerCase();
         if (errorMsg.includes('no data') || errorMsg.includes('not found') || errorMsg.includes('empty')) {
           el.textContent = "There are no alerts with respect to stocks and the threshold mentioned.";
@@ -607,3 +598,4 @@
 
 </body>
 </html>
+
