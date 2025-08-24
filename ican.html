@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Stock Tracker Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .search-dropdown {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+    }
+    
+    .search-input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    .dropdown-content {
+      position: absolute;
+      background-color: white;
+      border: 1px solid #ccc;
+      border-top: none;
+      border-radius: 0 0 4px 4px;
+      max-height: 200px;
+      overflow-y: auto;
+      width: 100%;
+      z-index: 1000;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .dropdown-item {
+      padding: 8px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 14px;
+    }
+    
+    .dropdown-item:hover, .dropdown-item.highlighted {
+      background-color: #f0f0f0;
+    }
+    
+    .dropdown-item:last-child {
+      border-bottom: none;
+    }
+    
+    .loading-spinner {
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #7e5bef;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      margin-right: 8px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+  <header class="bg-purple-600 text-white p-6 shadow">
+    <h1 class="text-3xl font-bold text-center">📈 Investment Management Dashboard</h1>
+    <p class="text-center mt-1 text-sm">Manage and visualize your tracked stocks</p>
+  </header>
+
+  <main class="p-4 max-w-5xl mx-auto space-y-10">
+
+    <!-- Add Stock -->
+    <section class="bg-white shadow-md rounded-xl p-6">
+      <h2 class="text-xl font-semibold text-purple-600 mb-4">Add Stock</h2>
+      <form id="addRowForm" class="space-y-4">
+        <div>
+          <label class="block font-semibold">Search Stock:</label>
+          <div class="search-dropdown">
+            <input 
+              type="text" 
+              id="stockSearch" 
+              class="search-input" 
+              placeholder="Type to search stocks (minimum 2 characters)... eg.BBG000CZ0677"
+              autocomplete="off"
+            >
+            <div id="searchResults" class="dropdown-content" style="display: none;"></div>
+          </div>
+          <input type="hidden" id="selectedFigi" name="figi">
+          <input type="hidden" id="selectedDisplaySymbol" name="displaySymbol">
+        </div>
+        <div id="selectedStock" class="p-3 bg-gray-50 rounded border" style="display: none;">
+          <strong>Selected:</strong> <span id="selectedStockText"></span>
+        </div>
+        <div>
+          <label class="block font-semibold">Price:</label>
+          <input type="number" id="addPrice" class="w-full p-2 border rounded" placeholder="Enter Price" required>
+        </div>
+        <div>
+          <label class="block font-semibold">Email:</label>
+          <input type="email" id="addEmail" class="w-full p-2 border rounded" placeholder="Enter Email" required>
+        </div>
+        <div>
+          <label class="block font-semibold">Password:</label>
+          <input type="password" id="addPassword" class="w-full p-2 border rounded" placeholder="Enter Password" required>
+        </div>
+        <button type="submit" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Add Stock</button>
+      </form>
+    </section>
+
+    <!-- Delete Stock -->
+    <section class="bg-white shadow-md rounded-xl p-6">
+      <h2 class="text-xl font-semibold text-purple-600 mb-6">Delete Stock</h2>
+      <form id="deleteRowForm" class="space-y-4">
+        <div>
+          <label class="block font-semibold">FIGI:</label>
+          <input type="text" id="deleteFigi" class="w-full p-2 border rounded" placeholder="Enter FIGI to Delete" required>
+        </div>
+        <div>
+          <label class="block font-semibold">Email:</label>
+          <input type="email" id="deleteEmail" class="w-full p-2 border rounded" placeholder="Enter Email" required>
+        </div>
+        <div>
+          <label class="block font-semibold">Password:</label>
+          <input type="password" id="deletePassword" class="w-full p-2 border rounded" placeholder="Enter Password" required>
+        </div>
+        <button type="submit" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Delete Row</button>
+      </form>
+    </section>
+
+    <!-- Show Table -->
+    <section class="bg-white shadow-md rounded-xl p-6">
+      <h2 class="text-xl font-semibold text-purple-600 mb-6">📄 Current Table Data</h2>
+      <div class="space-y-2">
+        <input type="email" id="showEmail" class="w-full p-2 border rounded" placeholder="Enter Email" required>
+        <input type="password" id="showPassword" class="w-full p-2 border rounded" placeholder="Enter Password" required>
+        <button id="showTable" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Show Table</button>
+      </div>
+      <pre id="tableData" class="bg-gray-100 p-4 rounded text-sm overflow-x-auto whitespace-pre-wrap"></pre>
+    </section>
+
+    <!-- Chart Section -->
+    <section class="bg-white shadow-md rounded-xl p-6">
+      <h2 class="text-xl font-semibold text-purple-600 mb-6">📊 Portfolio Summary</h2>
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="bg-gray-50 rounded-xl p-4" style="position: relative; height: 400px;">
+          <canvas id="pieChart"></canvas>
+        </div>
+        <div class="bg-gray-50 rounded-xl p-4" style="position: relative; height: 400px;">
+          <canvas id="lineChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Show Alert Table -->
+    <section class="bg-white shadow-md rounded-xl p-6">
+      <h2 class="text-xl font-semibold text-purple-600 mb-6">🚨 Alert Table Data</h2>
+      <div class="space-y-2">
+        <input type="email" id="alertShowEmail" class="w-full p-2 border rounded" placeholder="Enter Email" required>
+        <input type="password" id="alertShowPassword" class="w-full p-2 border rounded" placeholder="Enter Password" required>
+        <button id="alertShowTable" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Show Alert Table</button>
+      </div>
+      <pre id="alertTableData" class="bg-gray-100 p-4 rounded text-sm overflow-x-auto whitespace-pre-wrap"></pre>
+    </section>
+
+  </main>
+
+  <script>
+    const API_BASE_URL = "https://ich68whaml.execute-api.ap-south-1.amazonaws.com/prd";
+
+    // Form elements
+    const addRowForm = document.getElementById("addRowForm");
+    const deleteRowForm = document.getElementById("deleteRowForm");
+    const showTableBtn = document.getElementById("showTable");
+    const alertShowTableBtn = document.getElementById("alertShowTable");
+
+    // Search elements
+    const stockSearch = document.getElementById("stockSearch");
+    const searchResults = document.getElementById("searchResults");
+    const selectedFigi = document.getElementById("selectedFigi");
+    const selectedDisplaySymbol = document.getElementById("selectedDisplaySymbol");
+    const selectedStock = document.getElementById("selectedStock");
+    const selectedStockText = document.getElementById("selectedStockText");
+
+    // Other form inputs
+    const addPrice = document.getElementById("addPrice");
+    const addEmail = document.getElementById("addEmail");
+    const addPassword = document.getElementById("addPassword");
+    const deleteFigi = document.getElementById("deleteFigi");
+    const deleteEmail = document.getElementById("deleteEmail");
+    const deletePassword = document.getElementById("deletePassword");
+    const showEmail = document.getElementById("showEmail");
+    const showPassword = document.getElementById("showPassword");
+    const alertShowEmail = document.getElementById("alertShowEmail");
+    const alertShowPassword = document.getElementById("alertShowPassword");
+
+    let dataset = [];
+    let pieChartInstance = null;
+    let lineChartInstance = null;
+    let searchTimeout = null;
+    let currentHighlighted = -1;
+
+    // Load stock data
+    async function loadStockData() {
+      try {
+        const response = await fetch("https://pricetracker-20jun2025.s3.ap-south-1.amazonaws.com/US_symbols.json");
+        dataset = await response.json();
+        console.log(`Loaded ${dataset.length} stocks`);
+      } catch (error) {
+        console.error("Error loading stock data:", error);
+        alert("Failed to load stock data. Please refresh the page.");
+      }
+    }
+
+    // Initialize data loading
+    loadStockData();
+
+    // Search functionality with debouncing
+    stockSearch.addEventListener("input", function(e) {
+      const query = e.target.value.trim();
+      
+      clearTimeout(searchTimeout);
+      
+      if (query.length < 2) {
+        hideSearchResults();
+        return;
+      }
+
+      // Show loading
+      showLoading();
+      
+      // Debounce search
+      searchTimeout = setTimeout(() => {
+        performSearch(query);
+      }, 300);
+    });
+
+    // Keyboard navigation
+    stockSearch.addEventListener("keydown", function(e) {
+      const items = searchResults.getElementsByClassName("dropdown-item");
+      
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        currentHighlighted = Math.min(currentHighlighted + 1, items.length - 1);
+        updateHighlight(items);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        currentHighlighted = Math.max(currentHighlighted - 1, -1);
+        updateHighlight(items);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (currentHighlighted >= 0 && items[currentHighlighted]) {
+          selectStock(items[currentHighlighted].dataset);
+        }
+      } else if (e.key === "Escape") {
+        hideSearchResults();
+      }
+    });
+
+    // Hide results when clicking outside
+    document.addEventListener("click", function(e) {
+      if (!e.target.closest(".search-dropdown")) {
+        hideSearchResults();
+      }
+    });
+
+    function showLoading() {
+      searchResults.innerHTML = '<div class="dropdown-item"><div class="loading-spinner"></div>Searching...</div>';
+      searchResults.style.display = "block";
+    }
+
+    function hideSearchResults() {
+      searchResults.style.display = "none";
+      currentHighlighted = -1;
+    }
+
+    function performSearch(query) {
+      const lowerQuery = query.toLowerCase();
+      
+      // Search in multiple fields with different weights
+      const matches = dataset
+        .map(item => {
+          const symbol = (item.displaySymbol || "").toLowerCase();
+          const desc = (item.description || "").toLowerCase();
+          const figi = (item.figi || "").toLowerCase();
+          
+          let score = 0;
+          
+          // Exact match gets highest score
+          if (symbol === lowerQuery) score += 100;
+          else if (symbol.startsWith(lowerQuery)) score += 80;
+          else if (symbol.includes(lowerQuery)) score += 60;
+          
+          if (desc.includes(lowerQuery)) score += 40;
+          if (figi.includes(lowerQuery)) score += 20;
+          
+          return score > 0 ? { item, score } : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 50) // Limit to 50 results for performance
+        .map(match => match.item);
+
+      displaySearchResults(matches);
+    }
+
+    function displaySearchResults(matches) {
+      if (matches.length === 0) {
+        searchResults.innerHTML = '<div class="dropdown-item">No results found</div>';
+      } else {
+        searchResults.innerHTML = matches
+          .map(item => `
+            <div class="dropdown-item" 
+                 data-figi="${item.figi}" 
+                 data-symbol="${item.displaySymbol}"
+                 data-description="${item.description}"
+                 onclick="selectStock(this.dataset)">
+              <strong>${item.displaySymbol}</strong> - ${item.description}
+              <br><small class="text-gray-500">FIGI: ${item.figi}</small>
+            </div>
+          `).join("");
+      }
+      
+      searchResults.style.display = "block";
+      currentHighlighted = -1;
+    }
+
+    function updateHighlight(items) {
+      Array.from(items).forEach((item, index) => {
+        item.classList.toggle("highlighted", index === currentHighlighted);
+      });
+    }
+
+    function selectStock(data) {
+      if (!data.figi || !data.symbol) return;
+      
+      selectedFigi.value = data.figi;
+      selectedDisplaySymbol.value = data.symbol;
+      stockSearch.value = `${data.symbol} - ${data.description}`;
+      selectedStockText.textContent = `${data.symbol} (${data.figi}) - ${data.description}`;
+      selectedStock.style.display = "block";
+      hideSearchResults();
+    }
+
+    // Common fetch function with proper error handling
+    async function apiCall(endpoint, payload) {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.message || result.error || `HTTP ${response.status}`);
+      }
+      
+      return result;
+    }
+
+    // Add Row Form Handler - FIXED VERSION
+    addRowForm.addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const figi = selectedFigi.value;
+      const display_symbol = selectedDisplaySymbol.value;
+      const price = parseFloat(addPrice.value);
+      const email = addEmail.value;
+      const password = addPassword.value;
+
+      if (!figi || !display_symbol) {
+        return alert("Please select a stock from the search results");
+      }
+
+      try {
+        // Try to check if user exists first, but handle both cases
+        let userExists = false;
+        let userData = null;
+        
+        try {
+          userData = await apiCall("/get-the-by-email", { email, password });
+          userExists = true;
+          
+          // Check if stock already exists for this user
+          const rows = Array.isArray(userData.data) ? userData.data : [];
+          const stockExists = rows.some(row => row.display_symbol === display_symbol);
+          
+          if (stockExists) {
+            alert("You already have this stock tracked.");
+            return;
+          }
+        } catch (error) {
+          // User might not exist, that's okay - we'll create them
+          console.log("User might not exist yet, will create new user");
+          userExists = false;
+        }
+
+        // Always try to create/add the stock (the backend handles both new users and existing users)
+        const result = await apiCall("/create-row", { 
+          figi, 
+          display_symbol, 
+          price, 
+          email, 
+          password 
+        });
+        
+        // Success message based on whether user existed
+        if (userExists) {
+          alert(result.message || "Stock added successfully to your portfolio!");
+        } else {
+          alert(result.message || "New user created and stock added successfully!");
+        }
+        
+        // Reset form
+        addRowForm.reset();
+        selectedStock.style.display = "none";
+        selectedFigi.value = "";
+        selectedDisplaySymbol.value = "";
+        
+      } catch (err) {
+        console.error("Add error:", err);
+        alert(err.message || "Error adding stock");
+      }
+    });
+
+    // Delete Row Form Handler
+    deleteRowForm.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const figi = deleteFigi.value;
+      const email = deleteEmail.value;
+      const password = deletePassword.value;
+
+      try {
+        const result = await apiCall("/delete-row", { email, figi, password });
+        alert(result.message || "Row deleted successfully!");
+        deleteRowForm.reset();
+      } catch (err) {
+        console.error("Delete error:", err);
+        alert(err.message || "Error deleting stock");
+      }
+    });
+
+    // Show Table Handler
+    showTableBtn.addEventListener("click", async function () {
+      const el = document.getElementById("tableData");
+      const email = showEmail.value;
+      const password = showPassword.value;
+      
+      if (!email || !password) {
+        return alert("Please enter email and password");
+      }
+      
+      el.textContent = "Loading...";
+      try {
+        const data = await apiCall("/get-the-by-email", { email, password });
+        
+        // Remove password from display data
+        const displayData = data.data.map(item => {
+          const { password, ...itemWithoutPassword } = item;
+          return itemWithoutPassword;
+        });
+        
+        el.textContent = JSON.stringify(displayData, null, 2);
+        renderCharts(data.data);
+      } catch (err) {
+        console.error("Show error:", err);
+        el.textContent = `There are currently no stocks associated with this email address.`;
+      }
+    });
+
+    // Alert Show Table Handler
+    alertShowTableBtn.addEventListener("click", async function () {
+      const el = document.getElementById("alertTableData");
+      const email = alertShowEmail.value;
+      const password = alertShowPassword.value;
+      
+      if (!email || !password) {
+        return alert("Please enter email and password");
+      }
+      
+      el.textContent = "Loading alert data...";
+      try {
+        const data = await apiCall("/alert_show", { email, password });
+        
+        // Check if data exists and has content
+        if (!data.data || (Array.isArray(data.data) && data.data.length === 0)) {
+          el.textContent = "There are no alerts with respect to stocks and the threshold mentioned.";
+        } else {
+          // Remove password from display data (handle both 'password' and 'PASSWORD' keys)
+          let displayData;
+          if (Array.isArray(data.data)) {
+            displayData = data.data.map(item => {
+              // Create a new object without password fields
+              const cleanItem = {};
+              for (const [key, value] of Object.entries(item)) {
+                if (key.toLowerCase() !== 'password') {
+                  cleanItem[key] = value;
+                }
+              }
+              return cleanItem;
+            });
+          } else {
+            displayData = data.data;
+          }
+          
+          el.textContent = JSON.stringify(displayData, null, 2);
+        }
+      } catch (err) {
+        console.error("Alert Show error:", err);
+        
+        // Better error handling - check if it's actually a "no data" scenario
+        const errorMsg = err.message.toLowerCase();
+        if (errorMsg.includes('no data') || errorMsg.includes('not found') || errorMsg.includes('empty')) {
+          el.textContent = "There are no alerts with respect to stocks and the threshold mentioned.";
+        } else {
+          el.textContent = `There are currently no alerts generated for the stocks and their associated thresholds linked to this email address.`;
+        }
+      }
+    });
+
+    function renderCharts(data) {
+      const labels = data.map(row => row.display_symbol || row.figi);
+      const prices = data.map(row => Number(row.price));
+      
+      if (pieChartInstance) pieChartInstance.destroy();
+      if (lineChartInstance) lineChartInstance.destroy();
+      
+      const pieCtx = document.getElementById("pieChart").getContext("2d");
+      pieChartInstance = new Chart(pieCtx, {
+        type: "pie",
+        data: {
+          labels,
+          datasets: [{
+            data: prices,
+            backgroundColor: ['#7e5bef','#d946ef','#14b8a6','#f43f5e','#facc15','#4ade80']
+          }]
+        },
+        options: { 
+          responsive: true, 
+          maintainAspectRatio: false,
+          plugins: { 
+            legend: { position: "bottom" } 
+          },
+          animation: {
+            animateRotate: true,
+            animateScale: false
+          }
+        }
+      });
+      
+      const lineCtx = document.getElementById("lineChart").getContext("2d");
+      lineChartInstance = new Chart(lineCtx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label: "Stock Prices",
+            data: prices,
+            borderColor: "#7e5bef",
+            backgroundColor: "rgba(126, 91, 239, 0.2)",
+            fill: true,
+            tension: 0.4
+          }]
+        },
+        options: { 
+          responsive: true, 
+          maintainAspectRatio: false,
+          scales: { 
+            y: { beginAtZero: false } 
+          },
+          interaction: {
+            mode: 'index',
+            intersect: false
+          },
+          plugins: {
+            legend: {
+              display: true
+            }
+          }
+        }
+      });
+    }
+  </script>
+
+  <div class="max-w-4xl mx-auto px-4">
+    <section class="bg-white shadow-md rounded-xl p-6 w-full">
+      <h2 class="text-xl font-semibold text-purple-600 mb-4">💬 Finance Chatbot Assistant</h2>
+      <iframe
+        src="https://app.livechatai.com/aibot-iframe/cmdh998u20003l20cyya7514i"
+        style="border:1px solid #EAEAEA"
+        width="100%"
+        height="680"
+        frameborder="0"
+        allow="microphone"
+      ></iframe>
+    </section>
+  </div>
+
+</body>
+</html>
